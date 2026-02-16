@@ -1,73 +1,112 @@
-# Welcome to your Lovable project
+# 🧠 NeuroAI – Smart Companion for Neurodivergent Minds
 
-## Project info
+NeuroAI is a premium, privacy-first AI assistant designed to help neurodivergent individuals (ADHD, Autism, Dyslexia) overcome executive dysfunction. It turns mounting pressure into momentum by decomposing overwhelming goals into **"Micro-Wins"**—small, non-intimidating, and immediately actionable steps.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## 🚀 Quick Start (Docker)
 
-There are several ways of editing your application.
+The fastest way to run NeuroAI is using Docker. No local installation is required.
 
-**Use Lovable**
+### 1. Using Docker Compose (Recommended)
+```bash
+# Clone the repository
+git clone https://github.com/rishu072/NEURO-INCLUSIVE-AI.git
+cd NEURO-INCLUSIVE-AI
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+# Start the application
+docker compose up --build
+```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
-Changes made via Lovable will be committed automatically to this repo.
+### 2. Manual Docker Build & Run
+```bash
+# Build the image
+docker build -t neuroai-app .
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Run the container
+docker run -p 3000:3000 -e GEMINI_API_KEY=your_key_here neuroai-app
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📖 How it Works
 
-**Use GitHub Codespaces**
+1. **Personalized Onboarding**: The app starts with a multi-step wizard to understand your specific neurodivergent experience and visual preferences.
+2. **AI Decomposition**: When you enter a goal (e.g., "Clean the kitchen"), the app uses **Google Gemini AI** to break it down into 5-10 tiny steps.
+3. **Single-Task Focus**: To prevent "choice paralysis," the dashboard shows only **one step at a time**.
+4. **Local Sovereignty**: All your tasks, profile data, and progress are stored **locally in your browser** (IndexedDB). Your data never leaves your device.
+5. **Dopamine Loops**: Every completion triggers celebration animations (confetti), XP gains, and badge unlocks to keep you motivated.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## ✨ Premium Features
 
-This project is built with:
+### 🎯 AI & Intelligence
+- **Task Decomposition**: Intelligent goal breakdown using Gemini 2.0 Flash.
+- **Micro-Win Philosophy**: Psychology-backed approach to reducing "task wall" anxiety.
+- **PII Masking**: Automatically redacts personal information before it ever hits the AI.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 🎨 Neuro-Inclusive Design
+- **Bionic Reading Mode**: Bolds fixation points to guide eyes and reduce reading fatigue.
+- **Dyslexia Support**: Toggle between OpenDyslexic, Lexend, and Inter fonts.
+- **Reduced Motion**: Disable animations with a single toggle for sensory sensitivity.
 
-## How can I deploy this project?
+### 🏆 Gamification
+- **Badge System**: Unlock 10+ unique achievement badges.
+- **Streak Management**: Build and maintain daily habits.
+- **XP & Levels**: Visual progression of your cognitive achievements.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## 🛠 Tech Stack
+- **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS 4.
+- **AI**: Google Generative AI (Gemini SDK).
+- **State/Storage**: Zustand (State), Dexie.js (IndexedDB).
+- **Animations**: Framer Motion, Canvas Confetti.
+- **Infrastructure**: Docker & Multi-stage Alpine Builds.
 
-Yes, you can!
+---
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📁 Project Structure
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```text
+src/
+├── app/                  # Next.js Pages & API Routes
+│   ├── dashboard/        # Main Task Center
+│   ├── onboarding/       # Interactive Setup
+│   ├── tasks/            # Goal Creation
+├── components/           # UI Component Library
+│   ├── accessibility/    # Bionic Text & Font Logic
+│   ├── gamification/     # Badges & Confetti
+│   └── task/             # Decomposition UI
+├── store/                # Zustand State Management
+└── lib/                  # Database & Utility Functions
+```
+
+---
+
+## 🔑 Environment Variables
+
+For Docker Compose, create a `.env` file in the project root:
+```env
+# Required for AI decomposition
+GEMINI_API_KEY=your_google_gemini_key
+
+# Optional
+NEXT_PUBLIC_VAPI_PUBLIC_KEY=your_key
+```
+
+For local development, create a `.env.local` file:
+```env
+# Required for AI decomposition
+GEMINI_API_KEY=your_google_gemini_key
+
+# Optional
+NEXT_PUBLIC_VAPI_PUBLIC_KEY=your_key
+```
+
+---
+
+## 📄 License
+MIT License - Built for the neurodiverse community by Rishu.
