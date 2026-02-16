@@ -1,0 +1,4 @@
+project_id = "ahzxbearexyyjzuafueu"
+
+[functions.decompose-goal]
+verify_jwt = false

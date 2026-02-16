@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
+  font-weight: 700;
+}
+
+@layer base {
+  :root {
+    --background: 36 35% 97%;
+    --foreground: 210 18% 14%;
+
+    --card: 36 30% 95%;
+    --card-foreground: 210 18% 14%;
+
+    --popover: 36 35% 97%;
+    --popover-foreground: 210 18% 14%;
+
+    --primary: 196 70% 40%;
+    --primary-foreground: 36 35% 97%;
+
+    --secondary: 20 75% 55%;
+    --secondary-foreground: 36 35% 97%;
+
+    --muted: 36 20% 90%;
+    --muted-foreground: 210 10% 45%;
+
+    --accent: 20 75% 55%;
+    --accent-foreground: 36 35% 97%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 36 35% 97%;
+
+    --border: 36 20% 88%;
+    --input: 36 20% 88%;
+    --ring: 196 70% 40%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 36 30% 95%;
+    --sidebar-foreground: 210 18% 14%;
+    --sidebar-primary: 196 70% 40%;
+    --sidebar-primary-foreground: 36 35% 97%;
+    --sidebar-accent: 20 75% 55%;
+    --sidebar-accent-foreground: 36 35% 97%;
+    --sidebar-border: 36 20% 88%;
+    --sidebar-ring: 196 70% 40%;
+
+    --gradient-calm: linear-gradient(135deg, hsl(196 70% 40%), hsl(180 60% 45%));
+    --gradient-warm: linear-gradient(135deg, hsl(20 75% 55%), hsl(12 80% 56%));
+    --shadow-soft: 0 6px 28px -6px hsl(196 70% 40% / 0.18);
+    --shadow-glow: 0 0 44px -6px hsl(196 70% 40% / 0.3);
+  }
+
+  .dark {
+    --background: 210 15% 8%;
+    --foreground: 36 30% 92%;
+
+    --card: 210 12% 12%;
+    --card-foreground: 36 30% 92%;
+
+    --popover: 210 12% 12%;
+    --popover-foreground: 36 30% 92%;
+
+    --primary: 196 70% 50%;
+    --primary-foreground: 210 15% 8%;
+
+    --secondary: 20 65% 52%;
+    --secondary-foreground: 210 15% 8%;
+
+    --muted: 210 10% 18%;
+    --muted-foreground: 36 15% 65%;
+
+    --accent: 20 65% 52%;
+    --accent-foreground: 210 15% 8%;
+
+    --destructive: 0 60% 46%;
+    --destructive-foreground: 36 30% 92%;
+
+    --border: 210 10% 18%;
+    --input: 210 10% 18%;
+    --ring: 196 70% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Manrope', sans-serif;
+  }
+
+  body.font-dyslexic {
+    font-family: 'OpenDyslexic', sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-calm {
+    background: var(--gradient-calm);
+  }
+
+  .gradient-warm {
+    background: var(--gradient-warm);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .display-font {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .hero-backdrop {
+    background:
+      radial-gradient(600px circle at 10% 10%, hsl(196 70% 40% / 0.12), transparent 55%),
+      radial-gradient(520px circle at 90% 15%, hsl(20 75% 55% / 0.18), transparent 50%),
+      radial-gradient(500px circle at 70% 80%, hsl(180 60% 45% / 0.12), transparent 55%);
+  }
+
+  .hero-grid {
+    background-image:
+      linear-gradient(to right, hsl(210 20% 15% / 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(210 20% 15% / 0.06) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+}
+
+/* High contrast mode */
+.high-contrast {
+  --foreground: 0 0% 0%;
+  --background: 0 0% 100%;
+  --card: 0 0% 98%;
+  --border: 0 0% 30%;
+  --muted-foreground: 0 0% 25%;
+}
+
+.dark.high-contrast {
+  --foreground: 0 0% 100%;
+  --background: 0 0% 0%;
+  --card: 0 0% 8%;
+  --border: 0 0% 70%;
+  --muted-foreground: 0 0% 75%;
+}
