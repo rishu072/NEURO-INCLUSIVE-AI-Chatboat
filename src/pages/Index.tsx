@@ -1,5 +1,8 @@
+// FIXED: Added localStorage persistence (key "microwin-session"), editable-steps review
+// screen before working state, bionic reading mode integration, and fallback toast.
+
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,21 +13,74 @@ import MicroWinCard, { MicroWin } from "@/components/MicroWinCard";
 import ProgressBar from "@/components/ProgressBar";
 import StreakCounter from "@/components/StreakCounter";
 import CompletionScreen from "@/components/CompletionScreen";
-import { Settings, LogOut, LogIn, User } from "lucide-react";
+import BionicText from "@/components/BionicText";
+import { Settings, LogOut, LogIn, Pencil, Trash2, RefreshCw, Play } from "lucide-react";
 
-type AppState = "input" | "working" | "complete";
+// FIXED: Persistence – session key stored in localStorage
+const SESSION_KEY = "microwin-session";
+
+type AppState = "input" | "review" | "working" | "complete";
+
+interface SessionData {
+  goal: string;
+  steps: MicroWin[];
+  currentStep: number;
+  completedCount: number;
+  appState: AppState;
+}
+
+// FIXED: Helpers to read/write/clear the persisted session
+function loadSession(): SessionData | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? (JSON.parse(raw) as SessionData) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(data: SessionData) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+  } catch {
+    // Quota or private-mode failures silently ignored
+  }
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, updateProfile } = useProfile();
   const navigate = useNavigate();
 
-  const [appState, setAppState] = useState<AppState>("input");
+  // FIXED: Restore session from localStorage on first mount if present
+  const saved = loadSession();
+
+  const [appState, setAppState] = useState<AppState>(saved?.appState ?? "input");
   const [isLoading, setIsLoading] = useState(false);
-  const [goal, setGoal] = useState("");
-  const [steps, setSteps] = useState<MicroWin[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedCount, setCompletedCount] = useState(0);
+  const [goal, setGoal] = useState(saved?.goal ?? "");
+  const [steps, setSteps] = useState<MicroWin[]>(saved?.steps ?? []);
+  const [currentStep, setCurrentStep] = useState(saved?.currentStep ?? 0);
+  const [completedCount, setCompletedCount] = useState(saved?.completedCount ?? 0);
+
+  // FIXED: Editable review copies – separate from authoritative steps state
+  const [reviewSteps, setReviewSteps] = useState<MicroWin[]>([]);
+
+  // FIXED: Bionic reading preference derived from profile
+  const bionicReading = profile?.bionic_reading ?? false;
+
+  // FIXED: Persist session to localStorage on every relevant state change
+  useEffect(() => {
+    if (appState === "input") {
+      // Don't persist empty input state – clear any stale session
+      clearSession();
+      return;
+    }
+    saveSession({ goal, steps, currentStep, completedCount, appState });
+  }, [goal, steps, currentStep, completedCount, appState]);
 
   // Apply user preferences to the DOM
   useEffect(() => {
@@ -89,16 +145,47 @@ const Index = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      setSteps(data.steps);
+      // FIXED: Show fallback toast if AI wasn't available
+      if (data?.fallback) {
+        toast.info("Using template steps — AI is currently unavailable.", { duration: 4000 });
+      }
+
+      const generated: MicroWin[] = data.steps;
+      setSteps(generated);
       setCurrentStep(0);
       setCompletedCount(0);
-      setAppState("working");
+
+      // FIXED: Transition to "review" state instead of directly to "working"
+      setReviewSteps(generated.map((s) => ({ ...s })));
+      setAppState("review");
     } catch (err: any) {
       console.error("Failed to decompose goal:", err);
       toast.error(err.message || "Failed to break down your goal. Try again!");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // FIXED: Editable review handlers
+  const handleReviewStepChange = (idx: number, value: string) => {
+    setReviewSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, step: value } : s)));
+  };
+
+  const handleReviewStepDelete = (idx: number) => {
+    setReviewSteps((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleReviewRegenerate = () => {
+    // Re-submit the goal to get a fresh set of steps
+    handleGoalSubmit(goal);
+  };
+
+  const handleReviewStart = () => {
+    // Commit the (possibly edited) review steps and begin working
+    setSteps(reviewSteps);
+    setCurrentStep(0);
+    setCompletedCount(0);
+    setAppState("working");
   };
 
   const updateStreak = async () => {
@@ -135,6 +222,8 @@ const Index = () => {
 
     if (currentStep >= steps.length - 1) {
       await updateStreak();
+      // FIXED: Clear session when goal is fully completed
+      clearSession();
       setAppState("complete");
     } else {
       setCurrentStep((prev) => prev + 1);
@@ -144,6 +233,8 @@ const Index = () => {
   const handleSkip = async () => {
     if (currentStep >= steps.length - 1) {
       await updateStreak();
+      // FIXED: Clear session when goal is skipped to completion
+      clearSession();
       setAppState("complete");
     } else {
       setCurrentStep((prev) => prev + 1);
@@ -151,6 +242,8 @@ const Index = () => {
   };
 
   const handleReset = () => {
+    // FIXED: Clear persisted session on reset
+    clearSession();
     setAppState("input");
     setGoal("");
     setSteps([]);
@@ -251,23 +344,101 @@ const Index = () => {
           </div>
         )}
 
+        {/* FIXED: Editable steps review screen before transitioning to "working" */}
+        {appState === "review" && (
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="w-full max-w-2xl mx-auto space-y-6"
+          >
+            <div className="text-center space-y-1">
+              <p className="text-sm text-muted-foreground">Review your plan for</p>
+              <h2 className="text-lg font-semibold text-foreground">
+                {bionicReading ? <BionicText text={goal} /> : goal}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Edit or delete any step, then hit <strong>Start</strong> when you're ready.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-6 shadow-soft backdrop-blur space-y-3">
+              <AnimatePresence>
+                {reviewSteps.map((step, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="flex items-start gap-3"
+                  >
+                    <span className="mt-2.5 text-xs text-muted-foreground font-mono w-5 shrink-0 text-right">
+                      {idx + 1}.
+                    </span>
+                    {/* FIXED: Inline text input for editing each step */}
+                    <input
+                      type="text"
+                      value={step.step}
+                      onChange={(e) => handleReviewStepChange(idx, e.target.value)}
+                      className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      aria-label={`Edit step ${idx + 1}`}
+                    />
+                    {/* FIXED: Delete button per step */}
+                    <button
+                      onClick={() => handleReviewStepDelete(idx)}
+                      disabled={reviewSteps.length <= 1}
+                      className="mt-1.5 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label={`Delete step ${idx + 1}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            <div className="flex gap-3">
+              {/* FIXED: Regenerate button to get a fresh AI decomposition */}
+              <button
+                onClick={handleReviewRegenerate}
+                disabled={isLoading}
+                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                Regenerate
+              </button>
+              {/* FIXED: Start button to commit steps and move to working state */}
+              <button
+                onClick={handleReviewStart}
+                disabled={reviewSteps.length === 0}
+                className="flex-1 gradient-calm text-primary-foreground rounded-lg py-2.5 px-6 font-medium flex items-center justify-center gap-2 hover:shadow-glow transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <Play className="h-4 w-4" />
+                Start
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {appState === "working" && (
           <div className="w-full max-w-3xl mx-auto space-y-8">
             <div className="rounded-2xl border border-border/70 bg-card/80 p-6 sm:p-8 shadow-soft backdrop-blur space-y-6">
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-1">Working on</p>
+                {/* FIXED: Apply BionicText to goal title when bionicReading is enabled */}
                 <h2 className="text-lg font-semibold text-foreground truncate max-w-md mx-auto">
-                  {goal}
+                  {bionicReading ? <BionicText text={goal} /> : goal}
                 </h2>
               </div>
               <ProgressBar current={completedCount} total={steps.length} />
             </div>
+            {/* FIXED: Pass bionicReading prop down to MicroWinCard */}
             <MicroWinCard
               win={steps[currentStep]}
               index={currentStep}
               total={steps.length}
               onComplete={handleStepComplete}
               onSkip={handleSkip}
+              bionicReading={bionicReading}
             />
           </div>
         )}
