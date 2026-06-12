@@ -9,6 +9,7 @@ import {
   Eye,
   Hash,
   Loader2,
+  MessageSquare,
   Moon,
   Palette,
   Save,
@@ -92,9 +93,11 @@ const Preferences = () => {
   const [breakReminders, setBreakReminders] = useState(true);
   const [fontPreference, setFontPreference] = useState("lexend");
   const [fontSize, setFontSize] = useState("medium");
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotionPref, setReducedMotionPref] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
   const [bionicReading, setBionicReading] = useState(false);
+  const [supportNotes, setSupportNotes] = useState("");
+  const [preferredStepCount, setPreferredStepCount] = useState(5);
 
   useEffect(() => {
     if (profile) {
@@ -105,9 +108,11 @@ const Preferences = () => {
       setBreakReminders(profile.break_reminders);
       setFontPreference(profile.font_preference);
       setFontSize(profile.font_size);
-      setReducedMotion(profile.reduced_motion);
+      setReducedMotionPref(profile.reduced_motion);
       setHighContrast(profile.high_contrast);
       setBionicReading(profile.bionic_reading ?? false);
+      setSupportNotes(profile.support_notes ?? "");
+      setPreferredStepCount(profile.preferred_step_count ?? 5);
     }
   }, [profile]);
 
@@ -134,9 +139,11 @@ const Preferences = () => {
       break_reminders: breakReminders,
       font_preference: fontPreference,
       font_size: fontSize,
-      reduced_motion: reducedMotion,
+      reduced_motion: reducedMotionPref,
       high_contrast: highContrast,
       bionic_reading: bionicReading,
+      support_notes: supportNotes.trim() || null,
+      preferred_step_count: preferredStepCount,
     });
 
     if (result?.error) {
@@ -201,7 +208,7 @@ const Preferences = () => {
 
         {/* Focus Preferences */}
         <Section title="Focus Preferences" icon={Timer}>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-sm text-muted-foreground flex items-center gap-2">
                 <Hash className="h-3.5 w-3.5" /> Steps per session
@@ -216,6 +223,23 @@ const Preferences = () => {
                   className="w-24 accent-primary"
                 />
                 <span className="text-sm font-medium text-foreground w-6 text-right">{stepsPerSession}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="text-sm text-muted-foreground flex items-center gap-2">
+                <Hash className="h-3.5 w-3.5" /> Preferred steps per AI plan
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={3}
+                  max={10}
+                  value={preferredStepCount}
+                  onChange={(e) => setPreferredStepCount(Number(e.target.value))}
+                  className="w-24 accent-primary"
+                />
+                <span className="text-sm font-medium text-foreground w-6 text-right">{preferredStepCount}</span>
               </div>
             </div>
 
@@ -247,6 +271,26 @@ const Preferences = () => {
               >
                 {breakReminders ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
               </button>
+            </div>
+
+            {/* Support notes */}
+            <div className="space-y-2">
+              <label className="text-sm text-muted-foreground flex items-center gap-2">
+                <MessageSquare className="h-3.5 w-3.5" /> Tell us how you work best
+              </label>
+              <p className="text-xs text-muted-foreground">
+                This is sent to the AI to personalise your step breakdowns. Never shared with anyone else.
+              </p>
+              <textarea
+                id="support-notes"
+                value={supportNotes}
+                onChange={(e) => setSupportNotes(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder="e.g. I need more steps for kitchen tasks. I struggle with reading long instructions. Please keep each step under 10 words."
+                className="w-full rounded-lg border border-border bg-background/80 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none transition-shadow"
+              />
+              <p className="text-xs text-muted-foreground text-right">{supportNotes.length}/500</p>
             </div>
           </div>
         </Section>
@@ -287,12 +331,12 @@ const Preferences = () => {
               </label>
               <button
                 type="button"
-                onClick={() => setReducedMotion(!reducedMotion)}
+                onClick={() => setReducedMotionPref(!reducedMotionPref)}
                 className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-all ${
-                  reducedMotion ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground"
+                  reducedMotionPref ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground"
                 }`}
               >
-                {reducedMotion ? "On" : "Off"}
+                {reducedMotionPref ? "On" : "Off"}
               </button>
             </div>
 
