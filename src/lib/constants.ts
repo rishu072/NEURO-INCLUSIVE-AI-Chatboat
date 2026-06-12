@@ -4,7 +4,7 @@
  */
 
 /** localStorage key used to persist the active goal session. */
-export const SESSION_KEY = "microwin-session";
+export const SESSION_KEY = "neuroai-session";
 
 /** localStorage key used to persist the local (guest) streak data. */
 export const STREAK_KEY = "microwin-streak";

@@ -80,7 +80,12 @@ export function useGoalSession(
   profile: UserProfile | null,
   updateProfile: (updates: Partial<UserProfile>) => Promise<unknown>
 ): UseGoalSessionReturn {
-  const saved = loadSession();
+  // Only restore a session that was mid-progress ("working"). Restoring a
+  // "review" session is intentionally skipped because the AI data may be stale.
+  const saved = (() => {
+    const s = loadSession();
+    return s?.appState === "working" ? s : null;
+  })();
 
   const [appState, setAppState] = useState<AppState>(saved?.appState ?? "input");
   const [isLoading, setIsLoading] = useState(false);
@@ -90,13 +95,15 @@ export function useGoalSession(
   const [completedCount, setCompletedCount] = useState(saved?.completedCount ?? 0);
   const [reviewSteps, setReviewSteps] = useState<MicroWin[]>([]);
 
-  // Persist session on every relevant change (clear when back at input).
+  // Only persist when the user is actively mid-session ("working").
+  // For every other state, remove any stale entry so a page refresh
+  // always starts clean unless there was genuine in-progress work.
   useEffect(() => {
-    if (appState === "input") {
+    if (appState === "working") {
+      saveSession({ goal, steps, currentStep, completedCount, appState });
+    } else {
       clearSession();
-      return;
     }
-    saveSession({ goal, steps, currentStep, completedCount, appState });
   }, [goal, steps, currentStep, completedCount, appState]);
 
   // -------------------------------------------------------------------------
@@ -133,10 +140,29 @@ export function useGoalSession(
       const result = data as DecomposeGoalResponse;
       if (result.error) throw new Error(result.error);
       if (result.fallback) {
-        toast.info("Using template steps — AI is currently unavailable.", { duration: 4000 });
+        toast.info("Using template steps — AI is taking a breather. You've got this! 🌱", { duration: 4000 });
       }
 
-      const generated: MicroWin[] = result.steps;
+      const generated: MicroWin[] = result.steps ?? [];
+
+      // Edge-case: AI returned no steps.
+      if (generated.length === 0) {
+        toast.warning(
+          "Hmm, we couldn't break that down — try rephrasing your goal a little. 🤔",
+          { duration: 5000 }
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Edge-case: AI returned only one step — valid but worth a nudge.
+      if (generated.length === 1) {
+        toast.info(
+          "Just one step for this goal — that's totally fine, let's crush it! 🎯",
+          { duration: 4000 }
+        );
+      }
+
       setSteps(generated);
       setCurrentStep(0);
       setCompletedCount(0);
@@ -144,7 +170,9 @@ export function useGoalSession(
       setAppState("review");
     } catch (err) {
       console.error("Failed to decompose goal:", err);
-      toast.error(getErrorMessage(err, "Failed to break down your goal. Try again!"));
+      toast.error(
+        getErrorMessage(err, "Something went sideways — let's try breaking down your goal again!")
+      );
     } finally {
       setIsLoading(false);
     }
