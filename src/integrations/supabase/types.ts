@@ -27,9 +27,11 @@ export type Database = {
           high_contrast: boolean
           id: string
           last_streak_date: string | null
+          preferred_step_count: number
           reduced_motion: boolean
           steps_per_session: number
           streak_count: number
+          support_notes: string | null
           theme: string
           timer_duration: number
           updated_at: string
@@ -47,9 +49,11 @@ export type Database = {
           high_contrast?: boolean
           id?: string
           last_streak_date?: string | null
+          preferred_step_count?: number
           reduced_motion?: boolean
           steps_per_session?: number
           streak_count?: number
+          support_notes?: string | null
           theme?: string
           timer_duration?: number
           updated_at?: string
@@ -67,9 +71,11 @@ export type Database = {
           high_contrast?: boolean
           id?: string
           last_streak_date?: string | null
+          preferred_step_count?: number
           reduced_motion?: boolean
           steps_per_session?: number
           streak_count?: number
+          support_notes?: string | null
           theme?: string
           timer_duration?: number
           updated_at?: string

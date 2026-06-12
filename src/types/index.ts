@@ -61,4 +61,8 @@ export interface UserProfile {
   bionic_reading: boolean;
   streak_count: number;
   last_streak_date: string | null;
+  /** Free-text user context sent to the AI to personalise step granularity. */
+  support_notes: string | null;
+  /** How many steps the user prefers per session (3–10). */
+  preferred_step_count: number;
 }
