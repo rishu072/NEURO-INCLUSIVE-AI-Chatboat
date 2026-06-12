@@ -6,12 +6,12 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// FIXED: PII masking – redact emails, phone numbers, and URLs before sending to AI
+// PII masking – redact emails, phone numbers, and URLs before sending to AI
 function maskPII(text: string): string {
   // Redact email addresses
-  let masked = text.replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, "[redacted]");
+  let masked = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[redacted]");
   // Redact phone numbers (common formats: +1-555-555-5555, (555) 555-5555, 555.555.5555, etc.)
-  masked = masked.replace(/(\+?\d[\s\-.]?)?(\(?\d{3}\)?[\s\-.]?)(\d{3}[\s\-.]?\d{4})/g, "[redacted]");
+  masked = masked.replace(/(\+?\d[\s.-]?)?(\(?\d{3}\)?[\s.-]?)(\d{3}[\s.-]?\d{4})/g, "[redacted]");
   // Redact URLs (http/https/ftp and www. prefixed)
   masked = masked.replace(/(?:https?:\/\/|ftp:\/\/|www\.)[^\s,;'")\]>]+/gi, "[redacted]");
   return masked;

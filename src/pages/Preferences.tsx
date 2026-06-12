@@ -1,22 +1,80 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
-import { useProfile } from "@/hooks/useProfile";
-import { useAuth } from "@/hooks/useAuth";
 import {
-  Sun, Moon, Palette, Timer, Hash, Bell, BellOff,
-  Type, ZoomIn, Accessibility, Eye, ArrowLeft, Save, Loader2, BookOpen,
+  Accessibility,
+  ArrowLeft,
+  Bell,
+  BellOff,
+  BookOpen,
+  Eye,
+  Hash,
+  Loader2,
+  Moon,
+  Palette,
+  Save,
+  Sun,
+  Timer,
+  Type,
+  ZoomIn,
 } from "lucide-react";
+import { LucideProps } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
-const accentOptions = [
-  { value: "sage", label: "Sage", hsl: "152 35% 45%" },
-  { value: "amber", label: "Amber", hsl: "35 60% 60%" },
-  { value: "ocean", label: "Ocean", hsl: "210 50% 50%" },
-  { value: "lavender", label: "Lavender", hsl: "270 40% 60%" },
-  { value: "coral", label: "Coral", hsl: "10 60% 55%" },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { ACCENT_OPTIONS } from "@/lib/constants";
 
+// ---------------------------------------------------------------------------
+// Local sub-components
+// ---------------------------------------------------------------------------
+
+/** Props for the Section layout wrapper. */
+interface SectionProps {
+  title: string;
+  icon: React.FC<LucideProps>;
+  children: React.ReactNode;
+}
+
+const Section = ({ title, icon: Icon, children }: SectionProps) => (
+  <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+    <div className="flex items-center gap-2 text-foreground font-semibold">
+      <Icon className="h-4 w-4 text-primary" />
+      {title}
+    </div>
+    {children}
+  </div>
+);
+
+/** Props for the OptionButton toggle button. */
+interface OptionButtonProps {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+const OptionButton = ({ selected, onClick, children }: OptionButtonProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
+      selected
+        ? "border-primary bg-primary/10 text-primary"
+        : "border-border text-muted-foreground hover:border-primary/40"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+/**
+ * User preferences page.
+ * Redirects to /auth when no user is logged in.
+ */
 const Preferences = () => {
   const { user } = useAuth();
   const { profile, loading: profileLoading, updateProfile } = useProfile();
@@ -32,7 +90,6 @@ const Preferences = () => {
   const [fontSize, setFontSize] = useState("medium");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [highContrast, setHighContrast] = useState(false);
-  // FIXED: Added bionic_reading preference state
   const [bionicReading, setBionicReading] = useState(false);
 
   useEffect(() => {
@@ -46,7 +103,6 @@ const Preferences = () => {
       setFontSize(profile.font_size);
       setReducedMotion(profile.reduced_motion);
       setHighContrast(profile.high_contrast);
-      // FIXED: Load bionic_reading from profile (default false if undefined)
       setBionicReading(profile.bionic_reading ?? false);
     }
   }, [profile]);
@@ -54,6 +110,14 @@ const Preferences = () => {
   if (!user) {
     navigate("/auth");
     return null;
+  }
+
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
   const handleSave = async () => {
@@ -68,9 +132,9 @@ const Preferences = () => {
       font_size: fontSize,
       reduced_motion: reducedMotion,
       high_contrast: highContrast,
-      // FIXED: Save bionic_reading preference
       bionic_reading: bionicReading,
     });
+
     if (result?.error) {
       toast.error("Failed to save preferences");
     } else {
@@ -79,38 +143,6 @@ const Preferences = () => {
     }
     setSaving(false);
   };
-
-  if (profileLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-      <div className="flex items-center gap-2 text-foreground font-semibold">
-        <Icon className="h-4 w-4 text-primary" />
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-
-  const OptionButton = ({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
-        selected
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border text-muted-foreground hover:border-primary/40"
-      }`}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -126,7 +158,7 @@ const Preferences = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl mx-auto px-6 pb-12 space-y-6"
       >
-        {/* Theme */}
+        {/* Theme & Colors */}
         <Section title="Theme & Colors" icon={Palette}>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Mode</p>
@@ -139,10 +171,11 @@ const Preferences = () => {
               </OptionButton>
             </div>
           </div>
+
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">Accent Color</p>
             <div className="flex gap-3 flex-wrap">
-              {accentOptions.map((opt) => (
+              {ACCENT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
@@ -161,7 +194,7 @@ const Preferences = () => {
           </div>
         </Section>
 
-        {/* Focus */}
+        {/* Focus Preferences */}
         <Section title="Focus Preferences" icon={Timer}>
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -180,6 +213,7 @@ const Preferences = () => {
                 <span className="text-sm font-medium text-foreground w-6 text-right">{stepsPerSession}</span>
               </div>
             </div>
+
             <div className="flex items-center justify-between">
               <label className="text-sm text-muted-foreground flex items-center gap-2">
                 <Timer className="h-3.5 w-3.5" /> Timer duration (min)
@@ -196,6 +230,7 @@ const Preferences = () => {
                 <span className="text-sm font-medium text-foreground w-6 text-right">{timerDuration}</span>
               </div>
             </div>
+
             <div className="flex items-center justify-between">
               <label className="text-sm text-muted-foreground">Break reminders</label>
               <button
@@ -227,18 +262,20 @@ const Preferences = () => {
                 </OptionButton>
               </div>
             </div>
+
             <div>
               <p className="text-sm text-muted-foreground mb-2 flex items-center gap-2">
                 <ZoomIn className="h-3.5 w-3.5" /> Font Size
               </p>
               <div className="flex gap-3">
-                {["small", "medium", "large"].map((size) => (
+                {(["small", "medium", "large"] as const).map((size) => (
                   <OptionButton key={size} selected={fontSize === size} onClick={() => setFontSize(size)}>
                     {size.charAt(0).toUpperCase() + size.slice(1)}
                   </OptionButton>
                 ))}
               </div>
             </div>
+
             <div className="flex items-center justify-between">
               <label className="text-sm text-muted-foreground flex items-center gap-2">
                 <Accessibility className="h-3.5 w-3.5" /> Reduced motion
@@ -253,6 +290,7 @@ const Preferences = () => {
                 {reducedMotion ? "On" : "Off"}
               </button>
             </div>
+
             <div className="flex items-center justify-between">
               <label className="text-sm text-muted-foreground flex items-center gap-2">
                 <Eye className="h-3.5 w-3.5" /> High contrast
@@ -267,7 +305,7 @@ const Preferences = () => {
                 {highContrast ? "On" : "Off"}
               </button>
             </div>
-            {/* FIXED: Bionic Reading toggle – matches existing reduced_motion / high_contrast style */}
+
             <div className="flex items-center justify-between">
               <label className="text-sm text-muted-foreground flex items-center gap-2">
                 <BookOpen className="h-3.5 w-3.5" /> Bionic reading

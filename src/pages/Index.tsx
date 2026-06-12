@@ -1,255 +1,49 @@
-// FIXED: Added localStorage persistence (key "microwin-session"), editable-steps review
-// screen before working state, bionic reading mode integration, and fallback toast.
-
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
+import { AnimatePresence, motion } from "framer-motion";
+import { LogIn, LogOut, Play, RefreshCw, Settings, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useProfile";
+
+import BionicText from "@/components/BionicText";
+import CompletionScreen from "@/components/CompletionScreen";
 import GoalInput from "@/components/GoalInput";
-import MicroWinCard, { MicroWin } from "@/components/MicroWinCard";
+import MicroWinCard from "@/components/MicroWinCard";
 import ProgressBar from "@/components/ProgressBar";
 import StreakCounter from "@/components/StreakCounter";
-import CompletionScreen from "@/components/CompletionScreen";
-import BionicText from "@/components/BionicText";
-import { Settings, LogOut, LogIn, Pencil, Trash2, RefreshCw, Play } from "lucide-react";
-
-// FIXED: Persistence – session key stored in localStorage
-const SESSION_KEY = "microwin-session";
-
-type AppState = "input" | "review" | "working" | "complete";
-
-interface SessionData {
-  goal: string;
-  steps: MicroWin[];
-  currentStep: number;
-  completedCount: number;
-  appState: AppState;
-}
-
-// FIXED: Helpers to read/write/clear the persisted session
-function loadSession(): SessionData | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as SessionData) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveSession(data: SessionData) {
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-  } catch {
-    // Quota or private-mode failures silently ignored
-  }
-}
-
-function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-}
+import { useAuth } from "@/hooks/useAuth";
+import { useGoalSession } from "@/hooks/useGoalSession";
+import { usePreferencesEffect } from "@/hooks/usePreferencesEffect";
+import { useProfile } from "@/hooks/useProfile";
+import { HERO_CARD_DELAY, HERO_TEXT_DELAY } from "@/lib/constants";
+import { getLocalStreak } from "@/lib/streak";
 
 const Index = () => {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { profile, updateProfile } = useProfile();
   const navigate = useNavigate();
 
-  // FIXED: Restore session from localStorage on first mount if present
-  const saved = loadSession();
+  // Apply accessibility / theme preferences to the DOM.
+  usePreferencesEffect(profile);
 
-  const [appState, setAppState] = useState<AppState>(saved?.appState ?? "input");
-  const [isLoading, setIsLoading] = useState(false);
-  const [goal, setGoal] = useState(saved?.goal ?? "");
-  const [steps, setSteps] = useState<MicroWin[]>(saved?.steps ?? []);
-  const [currentStep, setCurrentStep] = useState(saved?.currentStep ?? 0);
-  const [completedCount, setCompletedCount] = useState(saved?.completedCount ?? 0);
+  // All session state and handlers live in this hook.
+  const {
+    appState,
+    isLoading,
+    goal,
+    steps,
+    currentStep,
+    completedCount,
+    reviewSteps,
+    handleGoalSubmit,
+    handleReviewStepChange,
+    handleReviewStepDelete,
+    handleReviewRegenerate,
+    handleReviewStart,
+    handleStepComplete,
+    handleSkip,
+    handleReset,
+  } = useGoalSession(profile, updateProfile);
 
-  // FIXED: Editable review copies – separate from authoritative steps state
-  const [reviewSteps, setReviewSteps] = useState<MicroWin[]>([]);
-
-  // FIXED: Bionic reading preference derived from profile
   const bionicReading = profile?.bionic_reading ?? false;
-
-  // FIXED: Persist session to localStorage on every relevant state change
-  useEffect(() => {
-    if (appState === "input") {
-      // Don't persist empty input state – clear any stale session
-      clearSession();
-      return;
-    }
-    saveSession({ goal, steps, currentStep, completedCount, appState });
-  }, [goal, steps, currentStep, completedCount, appState]);
-
-  // Apply user preferences to the DOM
-  useEffect(() => {
-    if (!profile) return;
-
-    // Theme
-    document.documentElement.classList.toggle("dark", profile.theme === "dark");
-
-    // Font
-    document.body.classList.toggle("font-dyslexic", profile.font_preference === "dyslexic");
-
-    // Font size
-    document.documentElement.classList.remove("text-sm", "text-base", "text-lg");
-    if (profile.font_size === "small") document.documentElement.classList.add("text-sm");
-    else if (profile.font_size === "large") document.documentElement.classList.add("text-lg");
-
-    // Reduced motion
-    document.documentElement.style.setProperty(
-      "--motion-duration",
-      profile.reduced_motion ? "0s" : "0.35s"
-    );
-
-    // High contrast
-    document.documentElement.classList.toggle("high-contrast", profile.high_contrast);
-
-    // Accent color
-    const accents: Record<string, string> = {
-      sage: "152 35% 45%",
-      amber: "35 60% 60%",
-      ocean: "210 50% 50%",
-      lavender: "270 40% 60%",
-      coral: "10 60% 55%",
-    };
-    if (accents[profile.accent_color]) {
-      document.documentElement.style.setProperty("--primary", accents[profile.accent_color]);
-      document.documentElement.style.setProperty("--ring", accents[profile.accent_color]);
-    }
-  }, [profile]);
-
-  // Local streak for non-logged-in users
-  const getLocalStreak = (): number => {
-    const data = localStorage.getItem("microwin-streak");
-    if (!data) return 0;
-    const { count, lastDate } = JSON.parse(data);
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-    if (lastDate === today || lastDate === yesterday) return count;
-    return 0;
-  };
-
   const streak = profile ? profile.streak_count : getLocalStreak();
-
-  const handleGoalSubmit = async (goalText: string) => {
-    setIsLoading(true);
-    setGoal(goalText);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("decompose-goal", {
-        body: { goal: goalText },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      // FIXED: Show fallback toast if AI wasn't available
-      if (data?.fallback) {
-        toast.info("Using template steps — AI is currently unavailable.", { duration: 4000 });
-      }
-
-      const generated: MicroWin[] = data.steps;
-      setSteps(generated);
-      setCurrentStep(0);
-      setCompletedCount(0);
-
-      // FIXED: Transition to "review" state instead of directly to "working"
-      setReviewSteps(generated.map((s) => ({ ...s })));
-      setAppState("review");
-    } catch (err: any) {
-      console.error("Failed to decompose goal:", err);
-      toast.error(err.message || "Failed to break down your goal. Try again!");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // FIXED: Editable review handlers
-  const handleReviewStepChange = (idx: number, value: string) => {
-    setReviewSteps((prev) => prev.map((s, i) => (i === idx ? { ...s, step: value } : s)));
-  };
-
-  const handleReviewStepDelete = (idx: number) => {
-    setReviewSteps((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const handleReviewRegenerate = () => {
-    // Re-submit the goal to get a fresh set of steps
-    handleGoalSubmit(goal);
-  };
-
-  const handleReviewStart = () => {
-    // Commit the (possibly edited) review steps and begin working
-    setSteps(reviewSteps);
-    setCurrentStep(0);
-    setCompletedCount(0);
-    setAppState("working");
-  };
-
-  const updateStreak = async () => {
-    const today = new Date().toISOString().split("T")[0];
-    if (profile) {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-      const newCount =
-        profile.last_streak_date === today
-          ? profile.streak_count
-          : profile.last_streak_date === yesterday
-            ? profile.streak_count + 1
-            : 1;
-      await updateProfile({ streak_count: newCount, last_streak_date: today });
-      return newCount;
-    }
-    // Local fallback
-    const data = localStorage.getItem("microwin-streak");
-    const todayStr = new Date().toDateString();
-    if (!data) {
-      localStorage.setItem("microwin-streak", JSON.stringify({ count: 1, lastDate: todayStr }));
-      return 1;
-    }
-    const { count, lastDate } = JSON.parse(data);
-    if (lastDate === todayStr) return count;
-    const yesterdayStr = new Date(Date.now() - 86400000).toDateString();
-    const newCount = lastDate === yesterdayStr ? count + 1 : 1;
-    localStorage.setItem("microwin-streak", JSON.stringify({ count: newCount, lastDate: todayStr }));
-    return newCount;
-  };
-
-  const handleStepComplete = async () => {
-    const newCompleted = completedCount + 1;
-    setCompletedCount(newCompleted);
-
-    if (currentStep >= steps.length - 1) {
-      await updateStreak();
-      // FIXED: Clear session when goal is fully completed
-      clearSession();
-      setAppState("complete");
-    } else {
-      setCurrentStep((prev) => prev + 1);
-    }
-  };
-
-  const handleSkip = async () => {
-    if (currentStep >= steps.length - 1) {
-      await updateStreak();
-      // FIXED: Clear session when goal is skipped to completion
-      clearSession();
-      setAppState("complete");
-    } else {
-      setCurrentStep((prev) => prev + 1);
-    }
-  };
-
-  const handleReset = () => {
-    // FIXED: Clear persisted session on reset
-    clearSession();
-    setAppState("input");
-    setGoal("");
-    setSteps([]);
-    setCurrentStep(0);
-    setCompletedCount(0);
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
@@ -265,8 +59,10 @@ const Index = () => {
         >
           micro<span className="text-primary">wins</span>
         </motion.h1>
+
         <div className="flex items-center gap-2">
           <StreakCounter streak={streak} />
+
           {user ? (
             <>
               <button
@@ -298,13 +94,15 @@ const Index = () => {
 
       {/* Main content */}
       <main className="flex-1 flex flex-col items-center justify-start px-6 pb-20 pt-10 sm:pt-14 lg:pt-16 relative">
+
+        {/* Input screen */}
         {appState === "input" && (
           <div className="w-full max-w-5xl mx-auto">
             <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] items-center">
               <motion.div
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
+                transition={{ delay: HERO_TEXT_DELAY }}
                 className="text-left"
               >
                 <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
@@ -328,10 +126,11 @@ const Index = () => {
                   </span>
                 </div>
               </motion.div>
+
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
+                transition={{ delay: HERO_CARD_DELAY }}
                 className="rounded-2xl border border-border/70 bg-card/80 p-6 sm:p-8 shadow-soft backdrop-blur"
               >
                 <GoalInput onSubmit={handleGoalSubmit} isLoading={isLoading} />
@@ -344,7 +143,7 @@ const Index = () => {
           </div>
         )}
 
-        {/* FIXED: Editable steps review screen before transitioning to "working" */}
+        {/* Review screen – editable step list before starting */}
         {appState === "review" && (
           <motion.div
             initial={{ opacity: 0, y: 14 }}
@@ -374,7 +173,6 @@ const Index = () => {
                     <span className="mt-2.5 text-xs text-muted-foreground font-mono w-5 shrink-0 text-right">
                       {idx + 1}.
                     </span>
-                    {/* FIXED: Inline text input for editing each step */}
                     <input
                       type="text"
                       value={step.step}
@@ -382,7 +180,6 @@ const Index = () => {
                       className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       aria-label={`Edit step ${idx + 1}`}
                     />
-                    {/* FIXED: Delete button per step */}
                     <button
                       onClick={() => handleReviewStepDelete(idx)}
                       disabled={reviewSteps.length <= 1}
@@ -397,7 +194,6 @@ const Index = () => {
             </div>
 
             <div className="flex gap-3">
-              {/* FIXED: Regenerate button to get a fresh AI decomposition */}
               <button
                 onClick={handleReviewRegenerate}
                 disabled={isLoading}
@@ -406,7 +202,6 @@ const Index = () => {
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                 Regenerate
               </button>
-              {/* FIXED: Start button to commit steps and move to working state */}
               <button
                 onClick={handleReviewStart}
                 disabled={reviewSteps.length === 0}
@@ -419,19 +214,18 @@ const Index = () => {
           </motion.div>
         )}
 
+        {/* Working screen */}
         {appState === "working" && (
           <div className="w-full max-w-3xl mx-auto space-y-8">
             <div className="rounded-2xl border border-border/70 bg-card/80 p-6 sm:p-8 shadow-soft backdrop-blur space-y-6">
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-1">Working on</p>
-                {/* FIXED: Apply BionicText to goal title when bionicReading is enabled */}
                 <h2 className="text-lg font-semibold text-foreground truncate max-w-md mx-auto">
                   {bionicReading ? <BionicText text={goal} /> : goal}
                 </h2>
               </div>
               <ProgressBar current={completedCount} total={steps.length} />
             </div>
-            {/* FIXED: Pass bionicReading prop down to MicroWinCard */}
             <MicroWinCard
               win={steps[currentStep]}
               index={currentStep}
@@ -443,6 +237,7 @@ const Index = () => {
           </div>
         )}
 
+        {/* Completion screen */}
         {appState === "complete" && (
           <div className="w-full max-w-3xl mx-auto">
             <CompletionScreen

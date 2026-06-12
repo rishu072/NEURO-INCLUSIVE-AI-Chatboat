@@ -1,26 +1,18 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+
 import { supabase } from "@/integrations/supabase/client";
+import { UserProfile } from "@/types";
+
 import { useAuth } from "./useAuth";
 
-export interface UserProfile {
-  id: string;
-  user_id: string;
-  display_name: string | null;
-  theme: string;
-  accent_color: string;
-  steps_per_session: number;
-  timer_duration: number;
-  break_reminders: boolean;
-  font_preference: string;
-  font_size: string;
-  reduced_motion: boolean;
-  high_contrast: boolean;
-  // FIXED: Added bionic_reading preference field
-  bionic_reading: boolean;
-  streak_count: number;
-  last_streak_date: string | null;
-}
+export type { UserProfile };
 
+/**
+ * Fetches and exposes the current user's profile from Supabase.
+ * Re-exports `UserProfile` so existing imports continue to work unchanged.
+ *
+ * @returns `profile`, `loading`, `updateProfile`, and `refetch`.
+ */
 export const useProfile = () => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -32,6 +24,7 @@ export const useProfile = () => {
       setLoading(false);
       return;
     }
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -48,9 +41,16 @@ export const useProfile = () => {
     fetchProfile();
   }, [fetchProfile]);
 
+  /**
+   * Persists a partial profile update to Supabase and refreshes local state.
+   *
+   * @param updates - Partial `UserProfile` fields to overwrite.
+   * @returns The Supabase `{ data, error }` result.
+   */
   const updateProfile = useCallback(
     async (updates: Partial<UserProfile>) => {
       if (!user) return;
+
       const { data, error } = await supabase
         .from("profiles")
         .update(updates)
