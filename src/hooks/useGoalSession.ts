@@ -130,9 +130,18 @@ export function useGoalSession(
     setIsLoading(true);
     setGoal(goalText);
 
+    // Extract personalisation fields from profile, falling back to neutral defaults
+    // for guests who haven't set preferences.
+    const supportNotes = profile?.support_notes ?? null;
+    const preferredStepCount = profile?.preferred_step_count ?? 5;
+
     try {
       const { data, error } = await supabase.functions.invoke("decompose-goal", {
-        body: { goal: goalText },
+        body: {
+          goal: goalText,
+          supportNotes,
+          preferredStepCount,
+        },
       });
 
       if (error) throw error;
