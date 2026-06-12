@@ -26,8 +26,9 @@ export function usePreferencesEffect(profile: UserProfile | null): void {
     // Theme
     document.documentElement.classList.toggle("dark", profile.theme === "dark");
 
-    // Font family
+    // Font family — only one font class active at a time.
     document.body.classList.toggle("font-dyslexic", profile.font_preference === "dyslexic");
+    document.body.classList.toggle("font-lexend", profile.font_preference === "lexend");
 
     // Font size
     document.documentElement.classList.remove("text-sm", "text-base", "text-lg");

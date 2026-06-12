@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { ACCENT_OPTIONS } from "@/lib/constants";
+import { getTransition } from "@/lib/motion";
 
 // ---------------------------------------------------------------------------
 // Local sub-components
@@ -80,6 +81,9 @@ const Preferences = () => {
   const { profile, loading: profileLoading, updateProfile } = useProfile();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  // Derive reduced motion from the already-loaded profile value so the page's
+  // own entry animation is also instant when the preference is set.
+  const reducedMotion = profile?.reduced_motion ?? false;
 
   const [theme, setTheme] = useState("light");
   const [accentColor, setAccentColor] = useState("sage");
@@ -156,6 +160,7 @@ const Preferences = () => {
       <motion.main
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={getTransition(reducedMotion, { duration: 0.35 })}
         className="max-w-2xl mx-auto px-6 pb-12 space-y-6"
       >
         {/* Theme & Colors */}

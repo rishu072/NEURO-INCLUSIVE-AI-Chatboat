@@ -9,6 +9,7 @@ import {
   TIMER_BEEP_GAIN,
   TIMER_WARNING_THRESHOLD_S,
 } from "@/lib/constants";
+import { getTransition } from "@/lib/motion";
 import { MicroWin } from "@/types";
 
 // Re-export MicroWin so existing callers that import from this file keep working.
@@ -22,6 +23,7 @@ export interface MicroWinCardProps {
   onComplete: () => void;
   onSkip: () => void;
   bionicReading?: boolean;
+  reducedMotion?: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ const MicroWinCard = ({
   onComplete,
   onSkip,
   bionicReading = false,
+  reducedMotion = false,
 }: MicroWinCardProps) => {
   const totalSeconds = win.duration * 60;
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
@@ -111,7 +114,7 @@ const MicroWinCard = ({
         initial={{ opacity: 0, x: 40, scale: 0.95 }}
         animate={{ opacity: 1, x: 0, scale: 1 }}
         exit={{ opacity: 0, x: -40, scale: 0.95 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
+        transition={getTransition(reducedMotion, { duration: 0.35, ease: "easeOut" })}
         className="w-full max-w-lg mx-auto"
       >
         <div className="rounded-xl border border-border bg-card p-8 shadow-soft">
@@ -137,7 +140,7 @@ const MicroWinCard = ({
 
           {/* Step text */}
           <p className="text-xl font-medium text-foreground leading-relaxed mb-8">
-            {bionicReading ? <BionicText text={win.step} /> : win.step}
+            <BionicText text={win.step} enabled={bionicReading} />
           </p>
 
           {/* Expiry notification */}
