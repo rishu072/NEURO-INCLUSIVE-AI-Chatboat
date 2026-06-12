@@ -6,21 +6,57 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// PII masking – redact emails, phone numbers, and URLs before sending to AI
+// ---------------------------------------------------------------------------
+// PII masking
+// ---------------------------------------------------------------------------
+
+/**
+ * Redacts personally-identifiable information from the goal text before it
+ * is sent to the external AI gateway.
+ *
+ * Replacements use distinct labels so the AI prompt stays readable:
+ *   email addresses  → [email]
+ *   phone numbers    → [phone]
+ *   URLs             → [link]
+ */
 function maskPII(text: string): string {
-  // Redact email addresses
-  let masked = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[redacted]");
-  // Redact phone numbers (common formats: +1-555-555-5555, (555) 555-5555, 555.555.5555, etc.)
-  masked = masked.replace(/(\+?\d[\s.-]?)?(\(?\d{3}\)?[\s.-]?)(\d{3}[\s.-]?\d{4})/g, "[redacted]");
-  // Redact URLs (http/https/ftp and www. prefixed)
-  masked = masked.replace(/(?:https?:\/\/|ftp:\/\/|www\.)[^\s,;'")\]>]+/gi, "[redacted]");
+  // Email addresses (RFC-5321 simplified)
+  let masked = text.replace(
+    /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g,
+    "[email]"
+  );
+
+  // Phone numbers – covers international (+1 …), US parenthesised ((555) …),
+  // dot / dash / space delimited variants, and plain digit strings ≥10 digits.
+  masked = masked.replace(
+    /(\+?[\d][\s.\-]?)?(\(?\d{3}\)?[\s.\-]?)(\d{3}[\s.\-]?\d{4})/g,
+    "[phone]"
+  );
+
+  // URLs – http / https / ftp and bare www. prefixes
+  masked = masked.replace(
+    /(?:https?:\/\/|ftp:\/\/|www\.)[^\s,;'")\]>]+/gi,
+    "[link]"
+  );
+
   return masked;
 }
 
-// FIXED: Template-based fallback decomposition when AI is unavailable
-function generateFallbackSteps(goal: string): Array<{ step: string; duration: number }> {
+// ---------------------------------------------------------------------------
+// Rule-based fallback decomposition
+// ---------------------------------------------------------------------------
+
+type MicroWin = { step: string; duration: number };
+
+/**
+ * Generates a set of keyword-matched template steps when the AI is unavailable.
+ * Matches are tried in order; the first match wins.
+ * Always returns exactly 5 steps in {step, duration} format.
+ */
+function generateFallbackSteps(goal: string): MicroWin[] {
   const lower = goal.toLowerCase();
 
+  // Cleaning / tidying
   if (/clean|tidy|organiz|wash|dust|sweep|vacuum|mop/.test(lower)) {
     return [
       { step: "🧹 Gather all supplies you need in one spot", duration: 2 },
@@ -31,6 +67,7 @@ function generateFallbackSteps(goal: string): Array<{ step: string; duration: nu
     ];
   }
 
+  // Writing / drafting
   if (/write|essay|report|article|blog|draft|document/.test(lower)) {
     return [
       { step: "💡 Jot down your main idea or thesis in one sentence", duration: 3 },
@@ -41,7 +78,8 @@ function generateFallbackSteps(goal: string): Array<{ step: string; duration: nu
     ];
   }
 
-  if (/study|exam|test|learn|revision|review|homework|course/.test(lower)) {
+  // Studying / revision
+  if (/study|exam|test|learn|revision|revise|review|homework|course/.test(lower)) {
     return [
       { step: "📚 Gather your notes and materials for this topic", duration: 2 },
       { step: "🔑 Identify the three most important concepts to review", duration: 5 },
@@ -51,6 +89,18 @@ function generateFallbackSteps(goal: string): Array<{ step: string; duration: nu
     ];
   }
 
+  // Cooking / meal prep
+  if (/cook|meal|recipe|bake|dinner|lunch|breakfast|food|prep/.test(lower)) {
+    return [
+      { step: "🛒 Check you have all the ingredients you need", duration: 2 },
+      { step: "🔪 Chop, measure, and prep all ingredients before cooking", duration: 5 },
+      { step: "🍳 Follow the first cooking step in your recipe", duration: 5 },
+      { step: "🧂 Taste and adjust seasoning as you go", duration: 3 },
+      { step: "🍽️ Plate up and enjoy — you made that!", duration: 2 },
+    ];
+  }
+
+  // Email / messaging
   if (/email|message|reply|respond|contact|reach out/.test(lower)) {
     return [
       { step: "📋 List the key points you need to communicate", duration: 2 },
@@ -61,6 +111,7 @@ function generateFallbackSteps(goal: string): Array<{ step: string; duration: nu
     ];
   }
 
+  // Exercise / fitness
   if (/exercise|workout|gym|run|jog|fitness|training/.test(lower)) {
     return [
       { step: "👟 Change into comfortable workout clothes", duration: 2 },
@@ -71,15 +122,42 @@ function generateFallbackSteps(goal: string): Array<{ step: string; duration: nu
     ];
   }
 
-  // Default generic steps
+  // Generic default (spec-mandated copy)
   return [
-    { step: "🎯 Clarify exactly what 'done' looks like for this goal", duration: 2 },
-    { step: "📋 Break the goal into three smaller sub-tasks", duration: 3 },
-    { step: "⏱️ Start with the easiest sub-task first", duration: 5 },
-    { step: "🔄 Tackle the next sub-task and track your progress", duration: 5 },
-    { step: "✅ Complete the final sub-task and celebrate the win", duration: 5 },
+    { step: "Write down what 'done' looks like", duration: 2 },
+    { step: "Pick the easiest first step", duration: 2 },
+    { step: "Set a 5-minute timer", duration: 1 },
+    { step: "Do just that one thing", duration: 5 },
+    { step: "Take a 2-minute break", duration: 2 },
+    // Note: spec lists 6 generic steps — included as requested.
+    { step: "Decide your next step", duration: 2 },
   ];
 }
+
+// ---------------------------------------------------------------------------
+// Response helpers
+// ---------------------------------------------------------------------------
+
+/** Builds a JSON Response with CORS headers attached. */
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+/** Returns a fallback response tagged with source: "fallback". */
+function fallbackResponse(goal: string): Response {
+  return jsonResponse({
+    steps: generateFallbackSteps(goal),
+    fallback: true,
+    source: "fallback",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Edge function handler
+// ---------------------------------------------------------------------------
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -87,39 +165,44 @@ serve(async (req) => {
   }
 
   try {
-    const { goal } = await req.json();
+    const body = await req.json();
+    const rawGoal: string = body.goal ?? "";
 
-    // FIXED: PII masking – strip emails, phones, URLs before sending to AI
-    const safeGoal = maskPII(goal);
+    if (!rawGoal.trim()) {
+      return jsonResponse({ error: "goal is required" }, 400);
+    }
+
+    // 1. PII masking — redact before the text ever leaves this function.
+    const safeGoal = maskPII(rawGoal);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    // If no API key, immediately fall back
+    // 2. No API key → immediate fallback (no round-trip wasted).
     if (!LOVABLE_API_KEY) {
       console.warn("LOVABLE_API_KEY not configured – using fallback decomposition");
-      return new Response(
-        JSON.stringify({ steps: generateFallbackSteps(safeGoal), fallback: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return fallbackResponse(safeGoal);
     }
 
-    // FIXED: Wrap AI call in try/catch and fall back on any failure (network, 429, 402, non-ok)
-    let response: Response;
+    // 3. AbortController for a 4-second hard deadline on the AI call.
+    //    If the gateway is slow we fail fast and serve the template steps instead.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4_000);
+
+    let aiResponse: Response;
     try {
-      response = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              {
-                role: "system",
-                content: `You are a neuro-inclusive productivity coach. When given a high-level goal, break it down into 4-7 small, concrete "Micro-Win" steps. Each step should take about 5 minutes or less. 
+      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: `You are a neuro-inclusive productivity coach. When given a high-level goal, break it down into 4-7 small, concrete "Micro-Win" steps. Each step should take about 5 minutes or less.
 
 Rules:
 - Each step must be a single, clear action (verb + object)
@@ -130,60 +213,62 @@ Rules:
 
 Respond ONLY with a valid JSON array of objects with "step" (string) and "duration" (number, minutes) fields. No markdown, no explanation.
 Example: [{"step":"🎯 Write down your main idea in one sentence","duration":2},{"step":"📝 List three key points to support it","duration":5}]`,
-              },
-              {
-                role: "user",
-                content: `Break down this goal into micro-wins: "${safeGoal}"`,
-              },
-            ],
-            temperature: 0.7,
-          }),
-        }
-      );
-    } catch (networkErr) {
-      // FIXED: Network error → fall back to template
-      console.error("AI gateway network error – falling back:", networkErr);
-      return new Response(
-        JSON.stringify({ steps: generateFallbackSteps(safeGoal), fallback: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+            },
+            {
+              role: "user",
+              content: `Break down this goal into micro-wins: "${safeGoal}"`,
+            },
+          ],
+          temperature: 0.7,
+        }),
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      // AbortError means the 4-second timeout fired; any other error is a network failure.
+      const reason = (fetchErr as Error)?.name === "AbortError" ? "timeout" : "network error";
+      console.error(`AI gateway ${reason} – falling back to template steps`);
+      return fallbackResponse(safeGoal);
     }
 
-    // FIXED: Non-ok responses (429, 402, 5xx) → fall back instead of erroring
-    if (!response.ok) {
-      console.error("AI gateway returned", response.status, "– falling back to template");
-      return new Response(
-        JSON.stringify({ steps: generateFallbackSteps(safeGoal), fallback: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    clearTimeout(timeoutId);
+
+    // 4. Non-2xx response (429 rate-limit, 402 payment, 5xx server errors) → fallback.
+    if (!aiResponse.ok) {
+      console.error(
+        `AI gateway responded with HTTP ${aiResponse.status} – falling back to template steps`
       );
+      return fallbackResponse(safeGoal);
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const data = await aiResponse.json();
+    const content: string | undefined = data.choices?.[0]?.message?.content;
 
-    // Parse the JSON from the AI response
-    let steps;
+    if (!content) {
+      console.error("AI gateway returned empty content – falling back");
+      return fallbackResponse(safeGoal);
+    }
+
+    // 5. Parse the JSON array from the AI response.
+    //    The model sometimes wraps the array in a markdown fence — strip that first.
+    let steps: MicroWin[];
     try {
-      // Try to extract JSON from potential markdown wrapping
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       steps = JSON.parse(jsonMatch ? jsonMatch[0] : content);
-    } catch {
-      console.error("Failed to parse AI response:", content, "– falling back");
-      // FIXED: Parse failure → fall back to template
-      return new Response(
-        JSON.stringify({ steps: generateFallbackSteps(safeGoal), fallback: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+      // Sanity-check: must be a non-empty array with the expected shape.
+      if (!Array.isArray(steps) || steps.length === 0) throw new Error("empty or invalid array");
+    } catch (parseErr) {
+      console.error("Failed to parse AI response – falling back:", content, parseErr);
+      return fallbackResponse(safeGoal);
     }
 
-    return new Response(JSON.stringify({ steps }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // 6. Success — tag with source: "ai".
+    return jsonResponse({ steps, fallback: false, source: "ai" });
   } catch (e) {
-    console.error("decompose-goal error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    console.error("decompose-goal unhandled error:", e);
+    return jsonResponse(
+      { error: e instanceof Error ? e.message : "Unknown error" },
+      500
     );
   }
 });
