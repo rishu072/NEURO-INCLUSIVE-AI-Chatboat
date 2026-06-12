@@ -15,6 +15,8 @@ export interface UserProfile {
   font_size: string;
   reduced_motion: boolean;
   high_contrast: boolean;
+  // FIXED: Added bionic_reading preference field
+  bionic_reading: boolean;
   streak_count: number;
   last_streak_date: string | null;
 }

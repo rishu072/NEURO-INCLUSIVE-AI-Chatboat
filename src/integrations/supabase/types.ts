@@ -17,6 +17,8 @@ export type Database = {
       profiles: {
         Row: {
           accent_color: string
+          // FIXED: Added bionic_reading field to profiles Row type
+          bionic_reading: boolean
           break_reminders: boolean
           created_at: string
           display_name: string | null
@@ -35,6 +37,8 @@ export type Database = {
         }
         Insert: {
           accent_color?: string
+          // FIXED: Added bionic_reading field to profiles Insert type
+          bionic_reading?: boolean
           break_reminders?: boolean
           created_at?: string
           display_name?: string | null
@@ -53,6 +57,8 @@ export type Database = {
         }
         Update: {
           accent_color?: string
+          // FIXED: Added bionic_reading field to profiles Update type
+          bionic_reading?: boolean
           break_reminders?: boolean
           created_at?: string
           display_name?: string | null
