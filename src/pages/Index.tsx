@@ -13,6 +13,7 @@ import { useGoalSession } from "@/hooks/useGoalSession";
 import { usePreferencesEffect } from "@/hooks/usePreferencesEffect";
 import { useProfile } from "@/hooks/useProfile";
 import { HERO_CARD_DELAY, HERO_TEXT_DELAY } from "@/lib/constants";
+import { getTransition } from "@/lib/motion";
 import { getLocalStreak } from "@/lib/streak";
 
 const Index = () => {
@@ -43,6 +44,7 @@ const Index = () => {
   } = useGoalSession(profile, updateProfile);
 
   const bionicReading = profile?.bionic_reading ?? false;
+  const reducedMotion = profile?.reduced_motion ?? false;
   const streak = profile ? profile.streak_count : getLocalStreak();
 
   return (
@@ -55,6 +57,7 @@ const Index = () => {
         <motion.h1
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          transition={getTransition(reducedMotion, { duration: 0.4 })}
           className="text-xl font-semibold text-foreground tracking-tight display-font"
         >
           micro<span className="text-primary">wins</span>
@@ -102,7 +105,7 @@ const Index = () => {
               <motion.div
                 initial={{ opacity: 0, y: -12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: HERO_TEXT_DELAY }}
+                transition={getTransition(reducedMotion, { duration: 0.45, delay: HERO_TEXT_DELAY })}
                 className="text-left"
               >
                 <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
@@ -130,7 +133,7 @@ const Index = () => {
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: HERO_CARD_DELAY }}
+                transition={getTransition(reducedMotion, { duration: 0.45, delay: HERO_CARD_DELAY })}
                 className="rounded-2xl border border-border/70 bg-card/80 p-6 sm:p-8 shadow-soft backdrop-blur"
               >
                 <GoalInput onSubmit={handleGoalSubmit} isLoading={isLoading} />
@@ -148,12 +151,13 @@ const Index = () => {
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={getTransition(reducedMotion, { duration: 0.35 })}
             className="w-full max-w-2xl mx-auto space-y-6"
           >
             <div className="text-center space-y-1">
               <p className="text-sm text-muted-foreground">Review your plan for</p>
               <h2 className="text-lg font-semibold text-foreground">
-                {bionicReading ? <BionicText text={goal} /> : goal}
+                <BionicText text={goal} enabled={bionicReading} />
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
                 Edit or delete any step, then hit <strong>Start</strong> when you're ready.
@@ -221,7 +225,7 @@ const Index = () => {
               <div className="text-center">
                 <p className="text-sm text-muted-foreground mb-1">Working on</p>
                 <h2 className="text-lg font-semibold text-foreground truncate max-w-md mx-auto">
-                  {bionicReading ? <BionicText text={goal} /> : goal}
+                  <BionicText text={goal} enabled={bionicReading} />
                 </h2>
               </div>
               <ProgressBar current={completedCount} total={steps.length} />
@@ -233,6 +237,7 @@ const Index = () => {
               onComplete={handleStepComplete}
               onSkip={handleSkip}
               bionicReading={bionicReading}
+              reducedMotion={reducedMotion}
             />
           </div>
         )}
