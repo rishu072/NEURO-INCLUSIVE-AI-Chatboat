@@ -138,6 +138,47 @@ function generateFallbackSteps(goal: string): MicroWin[] {
 // Response helpers
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// System prompt builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the AI system prompt, injecting the user's preferred step count
+ * and any PII-masked support notes as additional context.
+ *
+ * @param preferredStepCount - How many steps the user prefers (3–10).
+ * @param safeNotes          - PII-masked user context, or null if absent.
+ */
+function buildSystemPrompt(preferredStepCount: number, safeNotes: string | null): string {
+  const stepRange =
+    preferredStepCount <= 4
+      ? `${preferredStepCount}-${preferredStepCount + 1}`
+      : preferredStepCount >= 9
+      ? `${preferredStepCount - 1}-${preferredStepCount}`
+      : `${preferredStepCount - 1}-${preferredStepCount + 1}`;
+
+  const userContext = safeNotes
+    ? `\n\nUser context: ${safeNotes}\nAdjust step granularity, vocabulary, and pacing based on this context.`
+    : "";
+
+  return `You are a neuro-inclusive productivity coach. When given a high-level goal, break it down into exactly ${preferredStepCount} small, concrete "Micro-Win" steps (aim for ${stepRange} steps). Each step should take about 5 minutes or less.
+
+Rules:
+- Each step must be a single, clear action (verb + object)
+- Steps should be sequential and build toward the goal
+- Use simple, encouraging language
+- Include a brief motivational emoji at the start of each step
+- Keep each step under 15 words
+- Return EXACTLY ${preferredStepCount} steps unless the goal genuinely requires fewer${userContext}
+
+Respond ONLY with a valid JSON array of objects with "step" (string) and "duration" (number, minutes) fields. No markdown, no explanation.
+Example: [{"step":"🎯 Write down your main idea in one sentence","duration":2},{"step":"📝 List three key points to support it","duration":5}]`;
+}
+
+// ---------------------------------------------------------------------------
+// Response helpers
+// ---------------------------------------------------------------------------
+
 /** Builds a JSON Response with CORS headers attached. */
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -175,6 +216,16 @@ serve(async (req) => {
     // 1. PII masking — redact before the text ever leaves this function.
     const safeGoal = maskPII(rawGoal);
 
+    // Personalisation fields forwarded from the frontend profile.
+    const rawNotes: string = body.supportNotes ?? "";
+    const preferredStepCount: number = Math.min(
+      10,
+      Math.max(3, Number(body.preferredStepCount) || 5)
+    );
+
+    // PII-mask support notes too — they're user-written free text.
+    const safeNotes = rawNotes.trim() ? maskPII(rawNotes.trim()) : null;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     // 2. No API key → immediate fallback (no round-trip wasted).
@@ -202,17 +253,7 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are a neuro-inclusive productivity coach. When given a high-level goal, break it down into 4-7 small, concrete "Micro-Win" steps. Each step should take about 5 minutes or less.
-
-Rules:
-- Each step must be a single, clear action (verb + object)
-- Steps should be sequential and build toward the goal
-- Use simple, encouraging language
-- Include a brief motivational emoji at the start of each step
-- Keep each step under 15 words
-
-Respond ONLY with a valid JSON array of objects with "step" (string) and "duration" (number, minutes) fields. No markdown, no explanation.
-Example: [{"step":"🎯 Write down your main idea in one sentence","duration":2},{"step":"📝 List three key points to support it","duration":5}]`,
+              content: buildSystemPrompt(preferredStepCount, safeNotes),
             },
             {
               role: "user",
