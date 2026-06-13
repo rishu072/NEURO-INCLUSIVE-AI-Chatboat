@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { LogIn, LogOut, Play, RefreshCw, Settings, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { LogIn, LogOut, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import BionicText from "@/components/BionicText";
@@ -7,6 +7,7 @@ import CompletionScreen from "@/components/CompletionScreen";
 import GoalInput from "@/components/GoalInput";
 import MicroWinCard from "@/components/MicroWinCard";
 import ProgressBar from "@/components/ProgressBar";
+import StepsReview from "@/components/StepsReview";
 import StreakCounter from "@/components/StreakCounter";
 import { useAuth } from "@/hooks/useAuth";
 import { useGoalSession } from "@/hooks/useGoalSession";
@@ -36,6 +37,7 @@ const Index = () => {
     handleGoalSubmit,
     handleReviewStepChange,
     handleReviewStepDelete,
+    handleReviewAddStep,
     handleReviewRegenerate,
     handleReviewStart,
     handleStepComplete,
@@ -148,74 +150,18 @@ const Index = () => {
 
         {/* Review screen – editable step list before starting */}
         {appState === "review" && (
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={getTransition(reducedMotion, { duration: 0.35 })}
-            className="w-full max-w-2xl mx-auto space-y-6"
-          >
-            <div className="text-center space-y-1">
-              <p className="text-sm text-muted-foreground">Review your plan for</p>
-              <h2 className="text-lg font-semibold text-foreground">
-                <BionicText text={goal} enabled={bionicReading} />
-              </h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                Edit or delete any step, then hit <strong>Start</strong> when you're ready.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-border/70 bg-card/80 p-6 shadow-soft backdrop-blur space-y-3">
-              <AnimatePresence>
-                {reviewSteps.map((step, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    className="flex items-start gap-3"
-                  >
-                    <span className="mt-2.5 text-xs text-muted-foreground font-mono w-5 shrink-0 text-right">
-                      {idx + 1}.
-                    </span>
-                    <input
-                      type="text"
-                      value={step.step}
-                      onChange={(e) => handleReviewStepChange(idx, e.target.value)}
-                      className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-                      aria-label={`Edit step ${idx + 1}`}
-                    />
-                    <button
-                      onClick={() => handleReviewStepDelete(idx)}
-                      disabled={reviewSteps.length <= 1}
-                      className="mt-1.5 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                      aria-label={`Delete step ${idx + 1}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleReviewRegenerate}
-                disabled={isLoading}
-                className="flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                Regenerate
-              </button>
-              <button
-                onClick={handleReviewStart}
-                disabled={reviewSteps.length === 0}
-                className="flex-1 gradient-calm text-primary-foreground rounded-lg py-2.5 px-6 font-medium flex items-center justify-center gap-2 hover:shadow-glow transition-all active:scale-[0.98] disabled:opacity-50"
-              >
-                <Play className="h-4 w-4" />
-                Start
-              </button>
-            </div>
-          </motion.div>
+          <StepsReview
+            goal={goal}
+            steps={reviewSteps}
+            onStepChange={handleReviewStepChange}
+            onStepDelete={handleReviewStepDelete}
+            onStepAdd={handleReviewAddStep}
+            onRegenerate={handleReviewRegenerate}
+            onStart={handleReviewStart}
+            isRegenerating={isLoading}
+            bionicReading={bionicReading}
+            reducedMotion={reducedMotion}
+          />
         )}
 
         {/* Working screen */}
