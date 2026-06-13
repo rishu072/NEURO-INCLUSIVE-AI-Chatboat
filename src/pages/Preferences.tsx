@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   Accessibility,
   ArrowLeft,
+  Award,
   Bell,
   BellOff,
   BookOpen,
@@ -22,6 +23,7 @@ import { LucideProps } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import BadgesGrid from "@/components/BadgesGrid";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { ACCENT_OPTIONS } from "@/lib/constants";
@@ -370,6 +372,14 @@ const Preferences = () => {
               </button>
             </div>
           </div>
+        </Section>
+
+        {/* Badges */}
+        <Section title="Your Badges" icon={Award}>
+          <BadgesGrid earnedIds={profile?.badges_earned ?? []} />
+          <p className="text-xs text-muted-foreground text-center pt-1">
+            {(profile?.badges_earned?.length ?? 0)} of 6 badges earned
+          </p>
         </Section>
 
         <button

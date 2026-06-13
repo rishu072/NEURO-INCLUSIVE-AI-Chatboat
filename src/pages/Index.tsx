@@ -3,6 +3,7 @@ import { LogIn, LogOut, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import BionicText from "@/components/BionicText";
+import BadgeUnlock from "@/components/BadgeUnlock";
 import CompletionScreen from "@/components/CompletionScreen";
 import GoalInput from "@/components/GoalInput";
 import MicroWinCard from "@/components/MicroWinCard";
@@ -34,6 +35,8 @@ const Index = () => {
     currentStep,
     completedCount,
     reviewSteps,
+    newBadgeIds,
+    clearNewBadges,
     handleGoalSubmit,
     handleReviewStepChange,
     handleReviewStepDelete,
@@ -199,6 +202,13 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      {/* Badge unlock overlay — rendered outside <main> to sit above everything */}
+      <BadgeUnlock
+        newBadgeIds={newBadgeIds}
+        reducedMotion={reducedMotion}
+        onDone={clearNewBadges}
+      />
     </div>
   );
 };
