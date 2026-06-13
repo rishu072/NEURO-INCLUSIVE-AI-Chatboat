@@ -19,6 +19,7 @@ export type Database = {
           accent_color: string
           // FIXED: Added bionic_reading field to profiles Row type
           bionic_reading: boolean
+          badges_earned: string[]
           break_reminders: boolean
           created_at: string
           display_name: string | null
@@ -34,6 +35,8 @@ export type Database = {
           support_notes: string | null
           theme: string
           timer_duration: number
+          total_goals_completed: number
+          total_microwins_completed: number
           updated_at: string
           user_id: string
         }
@@ -41,6 +44,7 @@ export type Database = {
           accent_color?: string
           // FIXED: Added bionic_reading field to profiles Insert type
           bionic_reading?: boolean
+          badges_earned?: string[]
           break_reminders?: boolean
           created_at?: string
           display_name?: string | null
@@ -56,6 +60,8 @@ export type Database = {
           support_notes?: string | null
           theme?: string
           timer_duration?: number
+          total_goals_completed?: number
+          total_microwins_completed?: number
           updated_at?: string
           user_id: string
         }
@@ -63,6 +69,7 @@ export type Database = {
           accent_color?: string
           // FIXED: Added bionic_reading field to profiles Update type
           bionic_reading?: boolean
+          badges_earned?: string[]
           break_reminders?: boolean
           created_at?: string
           display_name?: string | null
@@ -78,6 +85,8 @@ export type Database = {
           support_notes?: string | null
           theme?: string
           timer_duration?: number
+          total_goals_completed?: number
+          total_microwins_completed?: number
           updated_at?: string
           user_id?: string
         }

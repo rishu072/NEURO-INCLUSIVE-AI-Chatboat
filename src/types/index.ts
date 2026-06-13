@@ -65,4 +65,10 @@ export interface UserProfile {
   support_notes: string | null;
   /** How many steps the user prefers per session (3–10). */
   preferred_step_count: number;
+  /** IDs of badges the user has earned. */
+  badges_earned: string[];
+  /** Lifetime count of individual micro-win steps completed. */
+  total_microwins_completed: number;
+  /** Lifetime count of full goals completed. */
+  total_goals_completed: number;
 }
