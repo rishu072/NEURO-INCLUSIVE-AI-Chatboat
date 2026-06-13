@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SESSION_KEY } from "@/lib/constants";
+import { checkNewBadges, BadgeStats } from "@/lib/badges";
 import { getErrorMessage } from "@/lib/errors";
 import { calculateNextStreak, incrementLocalStreak } from "@/lib/streak";
 import { AppState, DecomposeGoalResponse, MicroWin, SessionData, UserProfile } from "@/types";
@@ -54,6 +55,9 @@ export interface UseGoalSessionReturn {
   currentStep: number;
   completedCount: number;
   reviewSteps: MicroWin[];
+  /** IDs of badges just earned — show <BadgeUnlock> for these, then call clearNewBadges. */
+  newBadgeIds: string[];
+  clearNewBadges: () => void;
   handleGoalSubmit: (goalText: string) => Promise<void>;
   handleReviewStepChange: (idx: number, value: string) => void;
   handleReviewStepDelete: (idx: number) => void;
@@ -95,6 +99,7 @@ export function useGoalSession(
   const [currentStep, setCurrentStep] = useState(saved?.currentStep ?? 0);
   const [completedCount, setCompletedCount] = useState(saved?.completedCount ?? 0);
   const [reviewSteps, setReviewSteps] = useState<MicroWin[]>([]);
+  const [newBadgeIds, setNewBadgeIds] = useState<string[]>([]);
 
   // Only persist when the user is actively mid-session ("working").
   // For every other state, remove any stale entry so a page refresh
@@ -216,15 +221,60 @@ export function useGoalSession(
     setAppState("working");
   }
 
-  /** Marks the current step as done and advances or completes the session. */
+  /** Marks the current step as done, increments counters, checks badges, and advances. */
   async function handleStepComplete(): Promise<void> {
-    setCompletedCount((prev) => prev + 1);
+    const nextCompleted = completedCount + 1;
+    setCompletedCount(nextCompleted);
 
-    if (currentStep >= steps.length - 1) {
+    const isLastStep = currentStep >= steps.length - 1;
+
+    if (isLastStep) {
       await updateStreak();
       clearSession();
+
+      if (profile) {
+        // Build updated stats for badge checking.
+        const newMicrowins = (profile.total_microwins_completed ?? 0) + 1;
+        const newGoals = (profile.total_goals_completed ?? 0) + 1;
+        const stats: BadgeStats = {
+          totalMicrowins: newMicrowins,
+          totalGoals: newGoals,
+          streakCount: profile.streak_count ?? 0,
+          completionHour: new Date().getHours(),
+        };
+        const earned = profile.badges_earned ?? [];
+        const freshBadges = checkNewBadges(stats, earned);
+        await updateProfile({
+          total_microwins_completed: newMicrowins,
+          total_goals_completed: newGoals,
+          ...(freshBadges.length > 0 && {
+            badges_earned: [...earned, ...freshBadges],
+          }),
+        });
+        if (freshBadges.length > 0) setNewBadgeIds(freshBadges);
+      }
+
       setAppState("complete");
     } else {
+      // Mid-session step: only increment microwins counter + check badges.
+      if (profile) {
+        const newMicrowins = (profile.total_microwins_completed ?? 0) + 1;
+        const stats: BadgeStats = {
+          totalMicrowins: newMicrowins,
+          totalGoals: profile.total_goals_completed ?? 0,
+          streakCount: profile.streak_count ?? 0,
+          completionHour: new Date().getHours(),
+        };
+        const earned = profile.badges_earned ?? [];
+        const freshBadges = checkNewBadges(stats, earned);
+        await updateProfile({
+          total_microwins_completed: newMicrowins,
+          ...(freshBadges.length > 0 && {
+            badges_earned: [...earned, ...freshBadges],
+          }),
+        });
+        if (freshBadges.length > 0) setNewBadgeIds(freshBadges);
+      }
       setCurrentStep((prev) => prev + 1);
     }
   }
@@ -238,6 +288,11 @@ export function useGoalSession(
     } else {
       setCurrentStep((prev) => prev + 1);
     }
+  }
+
+  /** Clears the newly unlocked badge IDs after the UI has shown them. */
+  function clearNewBadges(): void {
+    setNewBadgeIds([]);
   }
 
   /** Clears all session state and returns to the input screen. */
@@ -258,6 +313,8 @@ export function useGoalSession(
     currentStep,
     completedCount,
     reviewSteps,
+    newBadgeIds,
+    clearNewBadges,
     handleGoalSubmit,
     handleReviewStepChange,
     handleReviewStepDelete,
