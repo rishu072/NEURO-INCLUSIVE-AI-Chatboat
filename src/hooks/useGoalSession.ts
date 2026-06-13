@@ -57,6 +57,7 @@ export interface UseGoalSessionReturn {
   handleGoalSubmit: (goalText: string) => Promise<void>;
   handleReviewStepChange: (idx: number, value: string) => void;
   handleReviewStepDelete: (idx: number) => void;
+  handleReviewAddStep: () => void;
   handleReviewRegenerate: () => void;
   handleReviewStart: () => void;
   handleStepComplete: () => Promise<void>;
@@ -197,6 +198,11 @@ export function useGoalSession(
     setReviewSteps((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  /** Appends a blank editable step to the review list. */
+  function handleReviewAddStep(): void {
+    setReviewSteps((prev) => [...prev, { step: "", duration: 5 }]);
+  }
+
   /** Re-submits the goal to get a fresh AI decomposition. */
   function handleReviewRegenerate(): void {
     handleGoalSubmit(goal);
@@ -255,6 +261,7 @@ export function useGoalSession(
     handleGoalSubmit,
     handleReviewStepChange,
     handleReviewStepDelete,
+    handleReviewAddStep,
     handleReviewRegenerate,
     handleReviewStart,
     handleStepComplete,
